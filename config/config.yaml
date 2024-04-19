@@ -1,0 +1,16 @@
+map_compressor:
+  ros__parameters:
+    debug: false
+    transform:
+      translate:
+        x: 0
+        y: 0
+        z: 0
+      quaternion:
+        x: 0
+        y: 0
+        z: 0
+        w: 1
+    grid:
+      resolution: 0.1
+      width: 30
