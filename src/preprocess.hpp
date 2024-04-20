@@ -4,6 +4,7 @@
 
 #include <pcl/common/transforms.h>
 #include <pcl/filters/statistical_outlier_removal.h>
+#include <rclcpp/logging.hpp>
 #include <rclcpp/rclcpp.hpp>
 
 #include <cassert>
@@ -13,13 +14,7 @@ namespace creeper {
 
 class Preprocess {
 public:
-  Preprocess() {
-
-    transform_ = Eigen::Quaterniond(0, 0, 0, 1) * Eigen::Translation3d(0, 0, 0);
-
-    resolution_ = 0.1;
-    width_ = 30;
-  }
+  Preprocess() {}
 
   GridType::UniquePtr get_grid(const LivoxType::SharedPtr &msg) {
 
@@ -30,11 +25,11 @@ public:
 
     const auto range = resolution_ * static_cast<float>(width_);
 
-    auto grid = std::make_unique<GridType>();
     auto cloud = std::make_shared<PointCloudType>();
+    auto grid = std::make_unique<GridType>();
     auto data = std::vector<int8_t>(width_ * width_, -1);
 
-    grid->header.frame_id = "local_grid";
+    grid->header.frame_id = "origin_link";
     grid->header.stamp = msg->header.stamp;
     grid->info.resolution = resolution_;
     grid->info.width = width_;
@@ -43,29 +38,29 @@ public:
     // Push all points in area to a point cloud valuable
     for (auto point : msg->points) {
 
-      if (in(-(range / 2), point.x, (range / 2)) &&
-          in(-(range / 2), point.y, (range / 2))) {
+      auto point_goal_link =
+          PointType{point.x, -point.y, static_cast<float>(0.55 - point.z)};
 
-        auto point_lidar_link = PointType(point.x, point.y, point.z);
-        auto point_origin_link =
-            pcl::transformPoint(point_lidar_link, transform_);
+      if (in(-(range / 2.0f), point_goal_link.x, (range / 2.0f)) &&
+          in(-(range / 2.0f), point_goal_link.y, (range / 2.0f))) {
 
-        cloud->push_back(point_origin_link);
+        cloud->push_back(point_goal_link);
       }
     }
 
     // Maybe you need a filter to make cloud clearer
     filter(cloud, cloud);
 
+    // Make grid map now
     for (auto point : *cloud) {
 
-      auto x = static_cast<int>((point.x + (range / 2)) * 10);
-      auto y = static_cast<int>((point.y + (range / 2)) * 10);
+      auto x = static_cast<int>((point.x + (range / 2.0f)) / resolution_);
+      auto y = static_cast<int>((point.y + (range / 2.0f)) / resolution_);
 
-      data[x + width_ * y] += static_cast<int8_t>(point.z * 10);
+      data[x + width_ * y] += (static_cast<int8_t>((point.z + 0.1) * 10));
     }
 
-    grid->data.swap(data);
+    grid->data = data;
 
     return grid;
   }
@@ -88,6 +83,19 @@ public:
   void set_transform(Eigen::Affine3d &transform) {
     //
     transform_ = transform;
+
+    auto point_origin_link = PointType(0.1, 0.1, 0.2);
+
+    // auto point_goal = pcl::transformPoint(point_origin,
+    // transform_.inverse());
+
+    auto point_goal_link =
+        PointType{point_origin_link.x, -point_origin_link.y,
+                  static_cast<float>(0.55 - point_origin_link.z)};
+
+    RCLCPP_INFO(logger_, "\n( %.2f, %.2f, %.2f ) -> ( %.2f, %.2f, %.2f )",
+                point_origin_link.x, point_origin_link.y, point_origin_link.z,
+                point_goal_link.x, point_goal_link.y, point_goal_link.z);
   }
 
 private:

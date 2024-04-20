@@ -5,18 +5,15 @@
 #include "./type_require.hpp"
 
 // Third party
-#include <Eigen/src/Geometry/Quaternion.h>
-#include <Eigen/src/Geometry/Translation.h>
+#include <Eigen/Eigen>
 #include <pcl_conversions/pcl_conversions.h>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 
 // Std
-#include <chrono>
 #include <functional>
 #include <memory>
 #include <string>
-#include <tuple>
 
 namespace creeper {
 
@@ -52,25 +49,30 @@ private:
       point_cloud2_publisher_;
 
   bool debug_;
-  Preprocess preprocess_;
+  std::shared_ptr<Preprocess> preprocess_;
 
 private:
   void read_param() {
     this->get_parameter<bool>("debug", debug_);
 
-    auto translate = Eigen::Translation3d();
+    auto translation = Eigen::Translation3d();
     auto quaternion = Eigen::Quaterniond();
 
-    this->get_parameter<double>("transform.translate.x", translate.x());
-    this->get_parameter<double>("transform.translate.y", translate.y());
-    this->get_parameter<double>("transform.translate.z", translate.z());
+    this->get_parameter<double>("transform.translation.x", translation.x());
+    this->get_parameter<double>("transform.translation.y", translation.y());
+    this->get_parameter<double>("transform.translation.z", translation.z());
 
     this->get_parameter<double>("transform.quaternion.x", quaternion.x());
     this->get_parameter<double>("transform.quaternion.y", quaternion.y());
     this->get_parameter<double>("transform.quaternion.z", quaternion.z());
     this->get_parameter<double>("transform.quaternion.w", quaternion.w());
 
-    auto transform = Eigen::Affine3d(translate * quaternion);
+    RCLCPP_INFO(this->get_logger(), "translation[ %.2lf, %.2lf, %.2lf ]",
+                translation.x(), translation.y(), translation.z());
+    RCLCPP_INFO(this->get_logger(), "quaternion[ %.2lf, %.2lf, %.2lf, %.2lf ]",
+                quaternion.x(), quaternion.y(), quaternion.z(), quaternion.w());
+
+    auto transform = Eigen::Affine3d(translation * quaternion);
 
     float resolution;
     int width;
@@ -78,13 +80,20 @@ private:
     this->get_parameter<float>("grid.resolution", resolution);
     this->get_parameter<int>("grid.width", width);
 
-    preprocess_.set_grid(resolution, width);
-    preprocess_.set_transform(transform);
+    RCLCPP_INFO(this->get_logger(), "grid[ %.2f, %d ]", resolution, width);
+
+    preprocess_ = std::make_shared<Preprocess>();
+
+    preprocess_->set_grid(resolution, width);
+    preprocess_->set_transform(transform);
   }
 
   void livox_subscriber_callback(LivoxType::SharedPtr msg) {
 
-    map_publisher_->publish(*preprocess_.get_grid(msg));
+    auto grid = preprocess_->get_grid(msg);
+
+    if (!grid->data.empty())
+      map_publisher_->publish(*grid);
 
     if (!debug_)
       return;
@@ -96,7 +105,7 @@ private:
       cloud->push_back(PointType(point.x, point.y, point.z));
     }
 
-    preprocess_.filter(cloud, cloud);
+    preprocess_->filter(cloud, cloud);
 
     pcl::toROSMsg(*cloud, *cloud_msg);
 
