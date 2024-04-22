@@ -1,12 +1,11 @@
-map_compressor:
+param_server:
   ros__parameters:
     debug: false
-    # Transformation from the coordinate system of lidar to origin
     transform:
       translation:
         x: 0.0
         y: 0.0
-        z: -0.55
+        z: -0.6
       quaternion:
         x: 0.0
         y: 1.0
@@ -15,3 +14,6 @@ map_compressor:
     grid:
       resolution: 0.1
       width: 100
+      z_wight: 10.0
+    grid_filter:
+      ground_height: 0.2

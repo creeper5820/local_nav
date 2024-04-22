@@ -1,15 +1,12 @@
 #include "./node.hpp"
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
 
-    rclcpp::init(argc, argv);
+  rclcpp::init(argc, argv);
 
-    auto map_compressor_node = std::make_shared<creeper::MapCompressor>();
-    RCLCPP_INFO(map_compressor_node->get_logger(), "map compressor start");
+  rclcpp::spin(std::make_shared<creeper::MainProcessNode>());
 
-    rclcpp::spin(map_compressor_node);
+  rclcpp::shutdown();
 
-    rclcpp::shutdown();
-
-    return 0;
+  return 0;
 }
