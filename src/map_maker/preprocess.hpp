@@ -1,7 +1,7 @@
 #pragma once
 
-#include "./param.hpp"
-#include "./type_require.hpp"
+#include "../utility/param.hpp"
+#include "../utility/type_require.hpp"
 
 #include <pcl/common/transforms.h>
 #include <pcl/filters/statistical_outlier_removal.h>
@@ -10,21 +10,19 @@
 #include <cassert>
 #include <memory>
 
-namespace creeper {
-
 class Preprocess {
 public:
     Preprocess() { }
 
-    std::unique_ptr<GridType> get_grid(const LivoxType::SharedPtr& msg)
+    std::unique_ptr<type::GridType> get_grid(const type::LivoxType::SharedPtr& msg)
     {
 
         const auto range = resolution_ * static_cast<float>(width_);
 
-        static auto point_goal_link = PointType();
+        static auto point_goal_link = type::PointType();
 
-        auto cloud = std::make_shared<PointCloudType>();
-        auto grid = std::make_unique<GridType>();
+        auto cloud = std::make_shared<type::PointCloudType>();
+        auto grid = std::make_unique<type::GridType>();
         auto data = std::vector<int8_t>(width_ * width_, -1);
 
         grid->header.frame_id = "local_link";
@@ -76,7 +74,7 @@ public:
     {
         transform_ = transform;
 
-        auto point_origin_link = PointType(0.1, 0.1, 0.2);
+        auto point_origin_link = type::PointType(0.1, 0.1, 0.2);
 
         auto point_goal_link = transform_from_lidar_link(point_origin_link);
 
@@ -100,7 +98,7 @@ private:
         return (val > left && val < right);
     }
 
-    void transform_from_lidar_link(const PointType& point_origin, PointType& point_goal)
+    void transform_from_lidar_link(const type::PointType& point_origin, type::PointType& point_goal)
     {
         point_goal = {
             point_origin.x,
@@ -109,12 +107,11 @@ private:
         };
     }
 
-    PointType transform_from_lidar_link(const PointType& point_origin)
+    type::PointType transform_from_lidar_link(const type::PointType& point_origin)
     {
-        auto point_goal = PointType();
+        auto point_goal = type::PointType();
         transform_from_lidar_link(point_origin, point_goal);
 
         return point_goal;
     }
 };
-} // namespace creeper

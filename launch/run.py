@@ -8,13 +8,11 @@ from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
     params = [
-        PathJoinSubstitution(
-            [FindPackageShare("map_compressor"), "config", "config.yaml"]
-        )
+        PathJoinSubstitution([FindPackageShare("local_nav"), "config", "config.yaml"])
     ]
 
     node = Node(
-        package="map_compressor",
+        package="local_nav",
         executable="run",
         parameters=params,
     )

@@ -2,37 +2,35 @@
 
 #include <rclcpp/rclcpp.hpp>
 
-namespace creeper {
-
 namespace param {
 
-    const auto node_option
-        = rclcpp::NodeOptions()
-              .allow_undeclared_parameters(true)
-              .automatically_declare_parameters_from_overrides(true);
+const auto node_option
+    = rclcpp::NodeOptions()
+          .allow_undeclared_parameters(true)
+          .automatically_declare_parameters_from_overrides(true);
 
-    // debug
-    inline bool debug;
+// debug
+inline bool debug;
 
-    // grid config
-    inline float resolution;
-    inline int width;
+// grid config
+inline float resolution;
+inline int width;
 
-    // transform
-    inline double transform_translation_x;
-    inline double transform_translation_y;
-    inline double transform_translation_z;
+// transform
+inline double transform_translation_x;
+inline double transform_translation_y;
+inline double transform_translation_z;
 
-    inline double transform_quaternion_x;
-    inline double transform_quaternion_y;
-    inline double transform_quaternion_z;
-    inline double transform_quaternion_w;
+inline double transform_quaternion_x;
+inline double transform_quaternion_y;
+inline double transform_quaternion_z;
+inline double transform_quaternion_w;
 
-    // preprocess
-    inline double z_weight;
+// preprocess
+inline double z_weight;
 
-    // grid filter
-    inline double ground_height;
+// grid filter
+inline double ground_height;
 
 } // namespace param
 
@@ -64,5 +62,3 @@ public:
         this->get_parameter<double>("grid_filter.ground_height", param::ground_height);
     }
 };
-
-} // namespace creeper

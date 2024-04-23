@@ -7,7 +7,7 @@
 
 #include <rclcpp/rclcpp.hpp>
 
-namespace creeper {
+namespace type {
 
 using PointType = pcl::PointXYZ;
 using PointCloudType = pcl::PointCloud<PointType>;

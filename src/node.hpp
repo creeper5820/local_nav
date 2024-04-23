@@ -1,9 +1,11 @@
 #pragma once
 
 // Private
-#include "./param.hpp"
-#include "./preprocess.hpp"
-#include "./type_require.hpp"
+#include "map_maker/preprocess.hpp"
+#include "path_searcher/map.hpp"
+#include "path_searcher/search.hpp"
+#include "utility/param.hpp"
+#include "utility/type_require.hpp"
 
 // Third party
 #include <Eigen/Eigen>
@@ -17,12 +19,10 @@
 #include <memory>
 #include <string>
 
-namespace creeper {
-
 class MainProcessNode : public rclcpp::Node {
 public:
     explicit MainProcessNode()
-        : Node("map_compressor")
+        : Node("local_nav")
     {
         RCLCPP_INFO(this->get_logger(), "map compressor start");
 
@@ -31,24 +31,25 @@ public:
 
         this->read_param();
 
-        using namespace std::chrono_literals;
+        map_publisher_ = this->create_publisher<type::GridType>("/compressed_map", 10);
 
-        livox_subscriber_ = this->create_subscription<LivoxType>(
-            "/livox/lidar", 10,
-            std::bind(&MainProcessNode::livox_subscriber_callback, this,
-                std::placeholders::_1));
+        // all for test
 
-        map_publisher_ = this->create_publisher<GridType>("/compressed_map", 10);
+        auto data = GridMap::DataType({ { 1, 3 }, { 2, 4 } });
+        map_ = std::make_unique<GridMap>(data);
+        auto search = std::make_unique<JpsSearch>(*map_);
+
+        // test end
     }
 
 private:
-    rclcpp::Subscription<LivoxType>::SharedPtr livox_subscriber_;
-
-    rclcpp::Publisher<GridType>::SharedPtr map_publisher_;
-
-    bool debug_;
+    rclcpp::Subscription<type::LivoxType>::SharedPtr livox_subscriber_;
+    rclcpp::Publisher<type::GridType>::SharedPtr map_publisher_;
 
     std::unique_ptr<Preprocess> preprocess_;
+    std::unique_ptr<GridMap> map_;
+
+    bool debug_;
 
 private:
     void read_param()
@@ -90,7 +91,7 @@ private:
         preprocess_->set_transform(transform);
     }
 
-    void livox_subscriber_callback(LivoxType::SharedPtr msg)
+    void livox_subscriber_callback(type::LivoxType::SharedPtr msg)
     {
         auto grid = preprocess_->get_grid(msg);
 
@@ -98,4 +99,3 @@ private:
             map_publisher_->publish(*grid);
     }
 };
-} // namespace creeper

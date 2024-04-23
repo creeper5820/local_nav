@@ -1,12 +1,12 @@
 #include "./node.hpp"
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv)
+{
+    rclcpp::init(argc, argv);
 
-  rclcpp::init(argc, argv);
+    rclcpp::spin(std::make_shared<MainProcessNode>());
 
-  rclcpp::spin(std::make_shared<creeper::MainProcessNode>());
+    rclcpp::shutdown();
 
-  rclcpp::shutdown();
-
-  return 0;
+    return 0;
 }

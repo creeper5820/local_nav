@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(map_compressor)
+project(local_nav)
 
 set(CMAKE_BUILD_TYPE "Debug")
 
@@ -14,9 +14,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(rclcpp_components REQUIRED)
 find_package(nav_msgs REQUIRED)
-find_package(visualization_msgs REQUIRED)
 find_package(pcl_ros REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(livox_ros_driver2 REQUIRED)
@@ -24,26 +22,19 @@ find_package(livox_ros_driver2 REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common io)
 
-set(dependencies
-    rclcpp
-    rclcpp_components
-    nav_msgs
-    visualization_msgs
-    pcl_ros
-    pcl_conversions
-    livox_ros_driver2)
+set(src src/main.cpp)
+set(dependencies rclcpp nav_msgs pcl_ros pcl_conversions livox_ros_driver2)
+set(library ${PCL_LIBRARIES})
+set(include_dir ${EIGEN3_INCLUDE_DIR} ${PCL_INCLUDE_DIRS})
 
-include_directories(include ${PCL_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIR})
-
-set(src_list src/main.cpp)
-
-add_executable(run ${src_list})
-
+add_executable(run ${src})
+target_link_libraries(run ${library})
 ament_target_dependencies(run ${dependencies})
+include_directories(${include_dir})
 
-target_link_libraries(run ${PCL_LIBRARIES})
+set(install_dir config launch)
 
 install(TARGETS run DESTINATION lib/${PROJECT_NAME})
-install(DIRECTORY config launch DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY ${install_dir} DESTINATION share/${PROJECT_NAME})
 
 ament_package()
