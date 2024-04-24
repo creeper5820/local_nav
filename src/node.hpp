@@ -10,7 +10,6 @@
 // Third party
 #include <Eigen/Eigen>
 #include <pcl_conversions/pcl_conversions.h>
-#include <rclcpp/logging.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 
@@ -37,7 +36,7 @@ public:
 
         auto data = GridMap::DataType({ { 1, 3 }, { 2, 4 } });
         map_ = std::make_unique<GridMap>(data);
-        auto search = std::make_unique<JpsSearch>(*map_);
+        auto search = std::make_unique<search::JpsSearch>(*map_);
 
         // test end
     }

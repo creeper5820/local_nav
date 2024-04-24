@@ -2,38 +2,43 @@
 
 #include <Eigen/Eigen>
 
+#include <array>
 #include <cassert>
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
+template <size_t _width, size_t _height>
 class GridMap {
 public:
-    using DataType = std::vector<std::vector<uint8_t>>;
     using PointType = Eigen::Vector2i;
+    using DataType = std::array<std::array<int8_t, _width>, _height>;
     using PathType = std::vector<PointType>;
 
-    explicit GridMap(const std::vector<std::vector<uint8_t>>& map)
+    GridMap() = default;
+
+    GridMap(const DataType& map)
     {
         assert(!map.empty());
         map_ = map;
     }
 
-    std::vector<uint8_t>& operator[](int index)
+    std::array<int8_t, _width>& operator[](int index)
     {
-        assert(index < map_.size());
+        assert(index < _height);
         return map_[index];
     }
 
-    int width()
+    constexpr size_t width()
     {
-        return map_.size();
+        return _width;
     }
 
-    int height()
+    constexpr size_t height()
     {
-        return map_[0].size();
+        return _height;
     }
 
 private:
-    std::vector<std::vector<uint8_t>> map_;
+    DataType map_;
 };
