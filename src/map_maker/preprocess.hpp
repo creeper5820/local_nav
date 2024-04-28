@@ -14,7 +14,7 @@ class Preprocess {
 public:
     Preprocess() { }
 
-    std::unique_ptr<type::GridType> get_grid(const type::LivoxType::SharedPtr& msg)
+    std::unique_ptr<nav_msgs::msg::OccupancyGrid> get_grid(const type::LivoxType::SharedPtr& msg)
     {
 
         const auto range = resolution_ * static_cast<float>(width_);
@@ -22,7 +22,7 @@ public:
         static auto point_goal_link = type::PointType();
 
         auto cloud = std::make_shared<type::PointCloudType>();
-        auto grid = std::make_unique<type::GridType>();
+        auto grid = std::make_unique<nav_msgs::msg::OccupancyGrid>();
         auto data = std::vector<int8_t>(width_ * width_, -1);
 
         grid->header.frame_id = "local_link";

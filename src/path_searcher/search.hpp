@@ -33,11 +33,6 @@ public:
         {
         }
 
-        SearchNode(int x, int y)
-            : position_({ x, y })
-        {
-        }
-
         template <size_t n>
         void move(std::array<Eigen::Vector2i, n> directions)
         {
