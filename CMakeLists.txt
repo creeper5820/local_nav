@@ -25,16 +25,16 @@ find_package(PCL REQUIRED COMPONENTS common io)
 set(src src/main.cpp)
 set(dependencies rclcpp nav_msgs pcl_ros pcl_conversions livox_ros_driver2)
 set(library ${PCL_LIBRARIES})
-set(include_dir ${EIGEN3_INCLUDE_DIR} ${PCL_INCLUDE_DIRS})
+set(include ${EIGEN3_INCLUDE_DIR} ${PCL_INCLUDE_DIRS})
 
 add_executable(run ${src})
 target_link_libraries(run ${library})
 ament_target_dependencies(run ${dependencies})
-include_directories(${include_dir})
+include_directories(${include})
 
-set(install_dir config launch)
+set(install config launch)
 
 install(TARGETS run DESTINATION lib/${PROJECT_NAME})
-install(DIRECTORY ${install_dir} DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY ${install} DESTINATION share/${PROJECT_NAME})
 
 ament_package()

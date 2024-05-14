@@ -1,6 +1,6 @@
 param_server:
   ros__parameters:
-    debug: false
+    debug: true
     transform:
       translation:
         x: 0.0
@@ -13,7 +13,8 @@ param_server:
         w: 1.0
     grid:
       resolution: 0.1
-      width: 100
+      width: 3.0
+      blind: 0.60
       z_wight: 10.0
     grid_filter:
       ground_height: 0.2
