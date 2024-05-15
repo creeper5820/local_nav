@@ -9,6 +9,7 @@
 #include <pcl/impl/point_types.hpp>
 #include <pcl/point_cloud.h>
 #include <rclcpp/logger.hpp>
+#include <rclcpp/utilities.hpp>
 
 #include <algorithm>
 #include <cassert>
@@ -16,7 +17,6 @@
 #include <cstdint>
 #include <memory>
 #include <queue>
-#include <rclcpp/utilities.hpp>
 #include <vector>
 
 class Preprocess {
@@ -38,14 +38,18 @@ public:
     Preprocess() = default;
 
     void set(double blind) {
-        RCLCPP_INFO(rclcpp::get_logger("make"), "blind: %lf", blind);
+        RCLCPP_INFO(rclcpp::get_logger("make"), "blind: %.2lf", blind);
         blind_ = blind;
     }
 
     void set(double resolution, double width) {
-        RCLCPP_INFO(rclcpp::get_logger("make"), "resolution: %lf, width: %lf", resolution, width);
         resolution_ = resolution;
         width_      = width;
+        grid_width_ = size_t(width_ / resolution_) + 1;
+
+        RCLCPP_INFO(
+            rclcpp::get_logger("make"), "resolution: %.2lf, width: %.2lf, grid width: %zu",
+            resolution_, width_, grid_width_);
     }
 
     void set(Eigen::Affine3d& transform) {
@@ -61,8 +65,6 @@ public:
 
     std::vector<Node>
         pointcloud_process(const std::unique_ptr<livox_ros_driver2::msg::CustomMsg>& msg) {
-
-        static const auto grid_width = size_t(width_ / resolution_) + 1;
 
         auto cloud = std::make_unique<pcl::PointCloud<pcl::PointXYZ>>();
 
@@ -86,11 +88,11 @@ public:
             }
         }
 
-        auto data = std::vector<Node>(grid_width * grid_width);
+        auto data = std::vector<Node>(grid_width_ * grid_width_);
 
-        for (int x = 0; x < grid_width; x++)
-            for (int y = 0; y < grid_width; y++) {
-                auto& temp = data[x + y * grid_width];
+        for (int x = 0; x < grid_width_; x++)
+            for (int y = 0; y < grid_width_; y++) {
+                auto& temp = data[x + y * grid_width_];
                 temp.type  = NodeType::NONE;
                 temp.value = -1;
                 temp.x     = x;
@@ -101,7 +103,7 @@ public:
             auto x = static_cast<int>((point.x + (width_ / 2.0)) / resolution_);
             auto y = static_cast<int>((point.y + (width_ / 2.0)) / resolution_);
 
-            auto& temp = data[x + grid_width * y];
+            auto& temp = data[x + grid_width_ * y];
             temp.value = std::max(temp.value, static_cast<int8_t>(point.z * param::z_weight));
         }
 
@@ -121,17 +123,14 @@ public:
     std::unique_ptr<nav_msgs::msg::OccupancyGrid>
         make(const std::unique_ptr<livox_ros_driver2::msg::CustomMsg>& msg) {
 
-        static const auto grid_width = size_t(width_ / resolution_) + 1;
+        auto node_map = this->pointcloud_process(msg);
 
-        auto node_map     = this->pointcloud_process(msg);
-        auto search_queue = std::queue<std::shared_ptr<Node>>();
+        auto search_queue = std::queue<Node*>();
 
         // select all the block node to queue as begin of search
         for (auto& node : node_map) {
             if (node.type == NodeType::BLOCK) {
-                node.value = 0;
-                node.type  = NodeType::AVAILABLE;
-                search_queue.push(std::make_shared<Node>(node));
+                search_queue.push(&node);
             }
         }
 
@@ -140,59 +139,63 @@ public:
             auto node = search_queue.front();
             search_queue.pop();
 
-            RCLCPP_INFO(
-                rclcpp::get_logger("make"), "x: %d, y: %d, type: %d, value: %d", node->x, node->y,
-                static_cast<int>(node->type), node->value);
+            // RCLCPP_INFO(
+            //     rclcpp::get_logger("search"), "[%-2d, %-2d, %-2d, %-2d]", node->x, node->y,
+            //     node->value, static_cast<int>(node->type));
 
-            auto x_data = int{0};
-            auto y_data = int{0};
-            auto value  = node->value;
+            auto value = static_cast<int8_t>(node->value + 1);
+            int x_data = 0;
+            int y_data = 0;
 
             // up
             x_data = node->x;
             y_data = node->y + 1;
-            if (y_data < grid_width && node->type == NodeType::AVAILABLE) {
-                auto& select_node = node_map[x_data + y_data * grid_width];
-                select_node.value = static_cast<int8_t>(value + 1);
-                select_node.type  = NodeType::USED;
+            if (y_data < grid_width_) {
+                auto select_node = &node_map[x_data + y_data * grid_width_];
+                if (select_node->type == NodeType::AVAILABLE) {
+                    select_node->value = value;
+                    select_node->type  = NodeType::USED;
 
-                search_queue.push(std::make_shared<Node>(select_node));
+                    search_queue.push(select_node);
+                }
             }
             // right
             x_data = node->x + 1;
             y_data = node->y;
-            if (x_data < grid_width && node->type == NodeType::AVAILABLE) {
-                auto& select_node = node_map[x_data + y_data * grid_width];
-                select_node.value = static_cast<int8_t>(value + 1);
-                select_node.type  = NodeType::USED;
+            if (x_data < grid_width_) {
+                auto select_node = &node_map[x_data + y_data * grid_width_];
+                if (select_node->type == NodeType::AVAILABLE) {
+                    select_node->value = value;
+                    select_node->type  = NodeType::USED;
 
-                search_queue.push(std::make_shared<Node>(select_node));
+                    search_queue.push(select_node);
+                }
             }
             // down
             x_data = node->x;
             y_data = node->y - 1;
-            if (y_data > -1 && node->type == NodeType::AVAILABLE) {
-                auto& select_node = node_map[x_data + y_data * grid_width];
-                select_node.value = static_cast<int8_t>(value + 1);
-                select_node.type  = NodeType::USED;
+            if (y_data > -1) {
+                auto select_node = &node_map[x_data + y_data * grid_width_];
+                if (select_node->type == NodeType::AVAILABLE) {
+                    select_node->value = value;
+                    select_node->type  = NodeType::USED;
 
-                search_queue.push(std::make_shared<Node>(select_node));
+                    search_queue.push(select_node);
+                }
             }
             // left
             x_data = node->x - 1;
             y_data = node->y;
-            if (x_data > -1 && node->type == NodeType::AVAILABLE) {
-                auto& select_node = node_map[x_data + y_data * grid_width];
-                select_node.value = static_cast<int8_t>(value + 1);
-                select_node.type  = NodeType::USED;
+            if (x_data > -1) {
+                auto select_node = &node_map[x_data + y_data * grid_width_];
+                if (select_node->type == NodeType::AVAILABLE) {
+                    select_node->value = value;
+                    select_node->type  = NodeType::USED;
 
-                search_queue.push(std::make_shared<Node>(select_node));
+                    search_queue.push(select_node);
+                }
             }
         }
-        using namespace std::chrono_literals;
-
-        while (true)
-            rclcpp::sleep_for(10ms);
 
         // make grid message to return
         auto grid = std::make_unique<nav_msgs::msg::OccupancyGrid>();
@@ -200,12 +203,12 @@ public:
         grid->header.frame_id = "local_link";
         grid->header.stamp    = msg->header.stamp;
         grid->info.resolution = float(resolution_);
-        grid->info.width      = grid_width;
-        grid->info.height     = grid_width;
-        grid->data            = std::vector<int8_t>(grid_width * grid_width);
+        grid->info.width      = grid_width_;
+        grid->info.height     = grid_width_;
+        grid->data            = std::vector<int8_t>(grid_width_ * grid_width_);
 
         for (auto& node : node_map) {
-            grid->data[node.x + node.y * grid_width] = node.value;
+            grid->data[node.x + node.y * grid_width_] = node.value;
         }
 
         return grid;
@@ -216,6 +219,7 @@ private:
     std::shared_ptr<rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>> map_publisher_;
     rclcpp::Logger logger_ = rclcpp::get_logger("preprocess");
 
+    size_t grid_width_;
     double resolution_;
     double blind_;
     double width_;
