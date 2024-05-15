@@ -117,7 +117,46 @@ public:
             }
         }
 
+        for (int i = 0; i < param::expand_size; i++)
+            this->expand_block(data);
+
         return data;
+    }
+
+    void expand_block(std::vector<Node>& map) const {
+        for (auto& grid : map) {
+
+            if (grid.type != NodeType::BLOCK)
+                continue;
+
+            int x;
+            int y;
+
+            x = grid.x + 1;
+            y = grid.y;
+            if (x < width_) {
+                map[x + y * grid_width_].type  = NodeType::BLOCK;
+                map[x + y * grid_width_].value = 0;
+            }
+            x = grid.x - 1;
+            y = grid.y;
+            if (x > -1) {
+                map[x + y * grid_width_].type  = NodeType::BLOCK;
+                map[x + y * grid_width_].value = 0;
+            }
+            x = grid.x;
+            y = grid.y + 1;
+            if (y < width_) {
+                map[x + y * grid_width_].type  = NodeType::BLOCK;
+                map[x + y * grid_width_].value = 0;
+            }
+            x = grid.x;
+            y = grid.y - 1;
+            if (y > -1) {
+                map[x + y * grid_width_].type  = NodeType::BLOCK;
+                map[x + y * grid_width_].value = 0;
+            }
+        }
     }
 
     std::unique_ptr<nav_msgs::msg::OccupancyGrid>

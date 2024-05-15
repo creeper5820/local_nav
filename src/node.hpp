@@ -43,7 +43,7 @@ private:
     std::shared_ptr<rclcpp::Subscription<livox_ros_driver2::msg::CustomMsg>> livox_subscriber_;
     std::shared_ptr<rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>> map_publisher_;
     std::unique_ptr<Preprocess> preprocess_;
-    bool debug_;
+    bool cost_map_;
 
 private:
     void publish_transform(const std::string& frame_id) {
@@ -83,7 +83,7 @@ private:
 
         auto transform = Eigen::Affine3d(translation * quaternion);
 
-        debug_ = param::debug;
+        cost_map_ = param::cost_map;
 
         preprocess_ = std::make_unique<Preprocess>();
         preprocess_->set(param::resolution, param::width);
@@ -93,14 +93,14 @@ private:
 
     void livox_subscriber_callback(std::unique_ptr<livox_ros_driver2::msg::CustomMsg> msg) {
 
-        if (!debug_) {
+        if (cost_map_) {
             auto grid = preprocess_->make(msg);
 
             if (!grid->data.empty())
                 map_publisher_->publish(*grid);
         }
 
-        if (debug_) {
+        if (!cost_map_) {
             auto map = nav_msgs::msg::OccupancyGrid();
 
             auto const grid_width = static_cast<size_t>(param::width / param::resolution + 1);

@@ -9,12 +9,13 @@ const auto node_option = rclcpp::NodeOptions()
                              .automatically_declare_parameters_from_overrides(true);
 
 // debug
-inline bool debug;
+inline bool cost_map;
 
 // grid config
 inline float resolution;
 inline double blind;
 inline double width;
+inline int expand_size;
 
 // transform
 inline double transform_translation_x;
@@ -40,7 +41,7 @@ public:
         : Node("param_server", param::node_option) {}
 
     void read_param() {
-        this->get_parameter<bool>("debug", param::debug);
+        this->get_parameter<bool>("cost_map", param::cost_map);
 
         this->get_parameter<double>("transform.translation.x", param::transform_translation_x);
         this->get_parameter<double>("transform.translation.y", param::transform_translation_y);
@@ -54,6 +55,7 @@ public:
         this->get_parameter<float>("grid.resolution", param::resolution);
         this->get_parameter<double>("grid.width", param::width);
         this->get_parameter<double>("grid.blind", param::blind);
+        this->get_parameter<int>("grid.expand_size", param::expand_size);
 
         this->get_parameter<double>("grid.z_wight", param::z_weight);
 
