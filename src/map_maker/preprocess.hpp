@@ -38,7 +38,7 @@ public:
     Preprocess() = default;
 
     void set(double blind) {
-        RCLCPP_INFO(rclcpp::get_logger("make"), "blind: %.2lf", blind);
+        RCLCPP_INFO(logger_, "blind: %.2lf", blind);
         blind_ = blind;
     }
 
@@ -48,8 +48,8 @@ public:
         grid_width_ = size_t(width_ / resolution_) + 1;
 
         RCLCPP_INFO(
-            rclcpp::get_logger("make"), "resolution: %.2lf, width: %.2lf, grid width: %zu",
-            resolution_, width_, grid_width_);
+            logger_, "resolution: %.2lf, width: %.2lf, grid width: %zu", resolution_, width_,
+            grid_width_);
     }
 
     void set(Eigen::Affine3d& transform) {
@@ -239,7 +239,7 @@ public:
         // make grid message to return
         auto grid = std::make_unique<nav_msgs::msg::OccupancyGrid>();
 
-        grid->header.frame_id = "local_link";
+        grid->header.frame_id = "map_2d_link";
         grid->header.stamp    = msg->header.stamp;
         grid->info.resolution = float(resolution_);
         grid->info.width      = grid_width_;
@@ -256,7 +256,7 @@ public:
 private:
     Eigen::Affine3d transform_;
     std::shared_ptr<rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>> map_publisher_;
-    rclcpp::Logger logger_ = rclcpp::get_logger("preprocess");
+    rclcpp::Logger logger_ = rclcpp::get_logger("local_nav");
 
     size_t grid_width_;
     double resolution_;

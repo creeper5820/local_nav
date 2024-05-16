@@ -1,6 +1,6 @@
 param_server:
   ros__parameters:
-    cost_map: true
+    cost_map: false
     transform:
       translation:
         x: 0.0
@@ -16,6 +16,6 @@ param_server:
       width: 3.1
       blind: 0.60
       z_wight: 3.1
-      expand_size: 3
+      expand_size: 0
     grid_filter:
       ground_height: 0.2

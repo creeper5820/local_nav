@@ -10,10 +10,11 @@
 #include <rclcpp/logging.hpp>
 #include <rclcpp/rclcpp.hpp>
 
-#include "geometry_msgs/msg/transform_stamped.hpp"
-#include "tf2_ros/static_transform_broadcaster.h"
+#include <geometry_msgs/msg/pose2_d.hpp>
 #include <livox_ros_driver2/msg/custom_msg.hpp>
+#include <nav_msgs/msg/odometry.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
+#include <tf2_ros/static_transform_broadcaster.h>
 
 // Std
 #include <cstddef>
@@ -27,49 +28,70 @@ public:
         : Node("local_nav") {
         RCLCPP_INFO(this->get_logger(), "map compressor start");
 
-        this->read_param();
-        this->publish_transform("unity");
-
-        livox_subscriber_ = this->create_subscription<livox_ros_driver2::msg::CustomMsg>(
+        livox_subscription_ = this->create_subscription<livox_ros_driver2::msg::CustomMsg>(
             "/livox/lidar", 10,
             [this](std::unique_ptr<livox_ros_driver2::msg::CustomMsg> msg) -> void {
                 livox_subscriber_callback(std::move(msg));
             });
+        position_subscription_ = this->create_subscription<nav_msgs::msg::Odometry>(
+            "/fast_lio/position", 10, [this](std::unique_ptr<nav_msgs::msg::Odometry> msg) {
+                auto q = Eigen::Quaterniond{
+                    msg->pose.pose.orientation.w,
+                    msg->pose.pose.orientation.x,
+                    msg->pose.pose.orientation.y,
+                    msg->pose.pose.orientation.z,
+                };
+                auto euler = q.matrix().eulerAngles(0, 1, 2);
 
-        map_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("/map_2d", 10);
+                auto position  = geometry_msgs::msg::Pose2D{};
+                position.x     = -msg->pose.pose.position.x;
+                position.y     = msg->pose.pose.position.y;
+                position.theta = -euler.z();
+
+                position_publisher_->publish(position);
+            });
+
+        map_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("/local_nav/map", 10);
+        position_publisher_ =
+            this->create_publisher<geometry_msgs::msg::Pose2D>("/local_nav/position", 10);
+        static_transform_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
+
+        this->read_param();
+        this->publish_transform();
     }
 
 private:
-    std::shared_ptr<rclcpp::Subscription<livox_ros_driver2::msg::CustomMsg>> livox_subscriber_;
+    std::shared_ptr<rclcpp::Subscription<livox_ros_driver2::msg::CustomMsg>> livox_subscription_;
+    std::shared_ptr<rclcpp::Subscription<nav_msgs::msg::Odometry>> position_subscription_;
+
     std::shared_ptr<rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>> map_publisher_;
+    std::shared_ptr<rclcpp::Publisher<geometry_msgs::msg::Pose2D>> position_publisher_;
+    std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_transform_broadcaster_;
+
     std::unique_ptr<Preprocess> preprocess_;
+
     bool cost_map_;
 
 private:
-    void publish_transform(const std::string& frame_id) {
-        auto tf_static_broadcaster = std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
+    void publish_transform() {
 
-        auto static_transform_stamp = geometry_msgs::msg::TransformStamped();
+        auto transform  = geometry_msgs::msg::TransformStamped();
+        auto rotation   = Eigen::AngleAxisd{};
+        auto quaternion = Eigen::Quaterniond{};
 
-        static_transform_stamp.header.stamp    = this->get_clock()->now();
-        static_transform_stamp.header.frame_id = "local_link";
-        static_transform_stamp.child_frame_id  = frame_id;
-
-        static_transform_stamp.transform.translation.x = 0;
-        static_transform_stamp.transform.translation.y = 0;
-        static_transform_stamp.transform.translation.z = 0;
-
-        static_transform_stamp.transform.rotation.w = 1;
-        static_transform_stamp.transform.rotation.x = 0;
-        static_transform_stamp.transform.rotation.y = 0;
-        static_transform_stamp.transform.rotation.z = 0;
-
-        tf_static_broadcaster->sendTransform(static_transform_stamp);
-
-        RCLCPP_INFO(
-            this->get_logger(), "set transform from %s to %s",
-            static_transform_stamp.header.frame_id.c_str(),
-            static_transform_stamp.child_frame_id.c_str());
+        transform.header.stamp            = this->get_clock()->now();
+        transform.header.frame_id         = "lidar_link";
+        transform.child_frame_id          = "map_2d_link";
+        transform.transform.translation.x = -param::width / 2;
+        transform.transform.translation.y = param::width / 2;
+        transform.transform.translation.z = 0.7;
+        rotation   = Eigen::AngleAxisd{std::numbers::pi, Eigen::Vector3d::UnitX()};
+        quaternion = Eigen::Quaterniond{rotation}.normalized();
+        transform.transform.rotation.w = quaternion.w();
+        transform.transform.rotation.x = quaternion.x();
+        transform.transform.rotation.y = quaternion.y();
+        transform.transform.rotation.z = quaternion.z();
+        static_transform_broadcaster_->sendTransform(transform);
     }
 
     void read_param() {
@@ -105,7 +127,7 @@ private:
 
             auto const grid_width = static_cast<size_t>(param::width / param::resolution + 1);
 
-            map.header.frame_id = "local_link";
+            map.header.frame_id = "map_2d_link";
             map.header.stamp    = msg->header.stamp;
             map.info.resolution = param::resolution;
             map.info.width      = grid_width;
