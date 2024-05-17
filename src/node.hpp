@@ -12,12 +12,12 @@
 
 #include <geometry_msgs/msg/pose2_d.hpp>
 #include <livox_ros_driver2/msg/custom_msg.hpp>
+#include <nav_msgs/msg/occupancy_grid.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <tf2_ros/static_transform_broadcaster.h>
 
 // Std
-#include <cstddef>
 #include <memory>
 #include <string>
 #include <utility>
@@ -33,27 +33,8 @@ public:
             [this](std::unique_ptr<livox_ros_driver2::msg::CustomMsg> msg) -> void {
                 livox_subscriber_callback(std::move(msg));
             });
-        position_subscription_ = this->create_subscription<nav_msgs::msg::Odometry>(
-            "/fast_lio/position", 10, [this](std::unique_ptr<nav_msgs::msg::Odometry> msg) {
-                auto q = Eigen::Quaterniond{
-                    msg->pose.pose.orientation.w,
-                    msg->pose.pose.orientation.x,
-                    msg->pose.pose.orientation.y,
-                    msg->pose.pose.orientation.z,
-                };
-                auto euler = q.matrix().eulerAngles(0, 1, 2);
-
-                auto position  = geometry_msgs::msg::Pose2D{};
-                position.x     = -msg->pose.pose.position.x;
-                position.y     = msg->pose.pose.position.y;
-                position.theta = -euler.z();
-
-                position_publisher_->publish(position);
-            });
 
         map_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("/local_nav/map", 10);
-        position_publisher_ =
-            this->create_publisher<geometry_msgs::msg::Pose2D>("/local_nav/position", 10);
         static_transform_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
 
         this->read_param();
@@ -65,7 +46,6 @@ private:
     std::shared_ptr<rclcpp::Subscription<nav_msgs::msg::Odometry>> position_subscription_;
 
     std::shared_ptr<rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>> map_publisher_;
-    std::shared_ptr<rclcpp::Publisher<geometry_msgs::msg::Pose2D>> position_publisher_;
     std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_transform_broadcaster_;
 
     std::unique_ptr<Preprocess> preprocess_;
@@ -115,31 +95,46 @@ private:
 
     void livox_subscriber_callback(std::unique_ptr<livox_ros_driver2::msg::CustomMsg> msg) {
 
-        if (cost_map_) {
-            auto grid = preprocess_->make(msg);
+        static auto packages = std::vector<std::vector<livox_ros_driver2::msg::CustomPoint>>();
+        static auto current  = std::vector<livox_ros_driver2::msg::CustomPoint>();
 
-            if (!grid->data.empty())
-                map_publisher_->publish(*grid);
+        packages.insert(packages.begin(), msg->points);
+
+        if (packages.size() == param::livox_frames)
+            packages.pop_back();
+
+        current.clear();
+
+        for (auto package : packages) {
+            current.insert(current.end(), package.begin(), package.end());
         }
 
-        if (!cost_map_) {
-            auto map = nav_msgs::msg::OccupancyGrid();
+        if (cost_map_) {
+            auto grid             = std::make_unique<nav_msgs::msg::OccupancyGrid>();
+            auto data             = preprocess_->make(current);
+            grid->header.frame_id = "map_2d_link";
+            grid->header.stamp    = msg->header.stamp;
+            grid->info.resolution = float(param::resolution);
+            grid->info.width      = param::grid_width;
+            grid->info.height     = param::grid_width;
+            grid->data            = std::vector<int8_t>(param::grid_width * param::grid_width);
+            for (auto& node : data) {
+                grid->data[node.x + node.y * param::grid_width] = node.value;
+            }
+            map_publisher_->publish(*grid);
 
-            auto const grid_width = static_cast<size_t>(param::width / param::resolution + 1);
-
+        } else {
+            auto map            = nav_msgs::msg::OccupancyGrid();
+            auto data           = preprocess_->livox_preprocess(current);
             map.header.frame_id = "map_2d_link";
             map.header.stamp    = msg->header.stamp;
-            map.info.resolution = param::resolution;
-            map.info.width      = grid_width;
-            map.info.height     = grid_width;
-            map.data            = std::vector<int8_t>(grid_width * grid_width);
-
-            auto data = preprocess_->pointcloud_process(msg);
-
-            for (auto i : data) {
-                map.data[i.x + i.y * grid_width] = (i.type == Preprocess::NodeType::BLOCK) ? -1 : 0;
+            map.info.resolution = static_cast<float>(param::resolution);
+            map.info.width      = param::grid_width;
+            map.info.height     = param::grid_width;
+            map.data            = std::vector<int8_t>(param::grid_width * param::grid_width);
+            for (const auto i : data) {
+                map.data[i.x + i.y * param::grid_width] = i.value;
             }
-
             map_publisher_->publish(map);
         }
     }

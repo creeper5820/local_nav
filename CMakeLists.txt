@@ -19,13 +19,15 @@ find_package(pcl_ros REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(livox_ros_driver2 REQUIRED)
 
+find_package(OpenCV REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common io)
 
-set(src src/main.cpp)
-set(dependencies rclcpp nav_msgs pcl_ros pcl_conversions livox_ros_driver2)
+set(src src/main.cpp src/map_maker/filter.cpp)
+set(dependencies rclcpp nav_msgs pcl_ros pcl_conversions livox_ros_driver2
+                 OpenCV)
 set(library ${PCL_LIBRARIES})
-set(include ${EIGEN3_INCLUDE_DIR} ${PCL_INCLUDE_DIRS})
+set(include ${EIGEN3_INCLUDE_DIR} ${PCL_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS})
 
 add_executable(run ${src})
 target_link_libraries(run ${library})

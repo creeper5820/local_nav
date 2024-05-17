@@ -10,12 +10,15 @@ const auto node_option = rclcpp::NodeOptions()
 
 // debug
 inline bool cost_map;
+inline int livox_frames;
 
 // grid config
-inline float resolution;
-inline double blind;
+inline double resolution;
 inline double width;
+inline size_t grid_width;
+inline double blind;
 inline int expand_size;
+inline int discrete_point;
 
 // transform
 inline double transform_translation_x;
@@ -42,6 +45,7 @@ public:
 
     void read_param() {
         this->get_parameter<bool>("cost_map", param::cost_map);
+        this->get_parameter<int>("livox_frames", param::livox_frames);
 
         this->get_parameter<double>("transform.translation.x", param::transform_translation_x);
         this->get_parameter<double>("transform.translation.y", param::transform_translation_y);
@@ -52,13 +56,16 @@ public:
         this->get_parameter<double>("transform.quaternion.z", param::transform_quaternion_x);
         this->get_parameter<double>("transform.quaternion.w", param::transform_quaternion_x);
 
-        this->get_parameter<float>("grid.resolution", param::resolution);
+        this->get_parameter<double>("grid.resolution", param::resolution);
         this->get_parameter<double>("grid.width", param::width);
         this->get_parameter<double>("grid.blind", param::blind);
         this->get_parameter<int>("grid.expand_size", param::expand_size);
+        this->get_parameter<int>("grid.discrete_point", param::discrete_point);
 
         this->get_parameter<double>("grid.z_wight", param::z_weight);
 
         this->get_parameter<double>("grid_filter.ground_height", param::ground_height);
+
+        param::grid_width = static_cast<size_t>(param::width / param::resolution);
     }
 };

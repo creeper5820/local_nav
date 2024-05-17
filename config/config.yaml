@@ -1,6 +1,7 @@
 param_server:
   ros__parameters:
-    cost_map: false
+    cost_map: true
+    livox_frames: 7
     transform:
       translation:
         x: 0.0
@@ -12,10 +13,9 @@ param_server:
         z: 0.0
         w: 1.0
     grid:
-      resolution: 0.1
-      width: 3.1
-      blind: 0.60
+      resolution: 0.05
+      width: 6.0
+      blind: 0.8
       z_wight: 3.1
-      expand_size: 0
     grid_filter:
       ground_height: 0.2
