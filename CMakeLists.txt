@@ -23,7 +23,7 @@ find_package(OpenCV REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common io)
 
-set(src src/main.cpp src/map_maker/filter.cpp)
+set(src src/main.cpp src/map_maker/filter.cpp src/map_maker/preprocess.cpp)
 set(dependencies rclcpp nav_msgs pcl_ros pcl_conversions livox_ros_driver2
                  OpenCV)
 set(library ${PCL_LIBRARIES})

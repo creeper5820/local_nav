@@ -25,7 +25,9 @@
 class MainProcessNode : public rclcpp::Node {
 public:
     explicit MainProcessNode()
-        : Node("local_nav") {
+        : Node("local_nav")
+        , preprocess_(std::make_unique<Preprocess>()) {
+
         RCLCPP_INFO(this->get_logger(), "map compressor start");
 
         livox_subscription_ = this->create_subscription<livox_ros_driver2::msg::CustomMsg>(
@@ -87,55 +89,54 @@ private:
 
         cost_map_ = param::cost_map;
 
-        preprocess_ = std::make_unique<Preprocess>();
         preprocess_->set(param::resolution, param::width);
         preprocess_->set(param::blind);
         preprocess_->set(transform);
     }
 
     void livox_subscriber_callback(std::unique_ptr<livox_ros_driver2::msg::CustomMsg> msg) {
-
+        static const std::string map_frame_id = std::string("map_2d_link");
         static auto packages = std::vector<std::vector<livox_ros_driver2::msg::CustomPoint>>();
-        static auto current  = std::vector<livox_ros_driver2::msg::CustomPoint>();
 
         packages.insert(packages.begin(), msg->points);
 
-        if (packages.size() == param::livox_frames)
-            packages.pop_back();
-
-        current.clear();
-
+        auto packed_cloud = std::vector<livox_ros_driver2::msg::CustomPoint>();
         for (auto package : packages) {
-            current.insert(current.end(), package.begin(), package.end());
+            packed_cloud.insert(packed_cloud.end(), package.begin(), package.end());
         }
 
         if (cost_map_) {
             auto grid             = std::make_unique<nav_msgs::msg::OccupancyGrid>();
-            auto data             = preprocess_->make(current);
-            grid->header.frame_id = "map_2d_link";
+            auto data             = preprocess_->generate_cost_map(packed_cloud);
+            grid->header.frame_id = map_frame_id;
             grid->header.stamp    = msg->header.stamp;
             grid->info.resolution = float(param::resolution);
             grid->info.width      = param::grid_width;
             grid->info.height     = param::grid_width;
             grid->data            = std::vector<int8_t>(param::grid_width * param::grid_width);
-            for (auto& node : data) {
+
+            for (const auto& node : *data)
                 grid->data[node.x + node.y * param::grid_width] = node.value;
-            }
+
             map_publisher_->publish(*grid);
 
         } else {
             auto map            = nav_msgs::msg::OccupancyGrid();
-            auto data           = preprocess_->livox_preprocess(current);
-            map.header.frame_id = "map_2d_link";
+            auto data           = preprocess_->livox_preprocess(packed_cloud);
+            map.header.frame_id = map_frame_id;
             map.header.stamp    = msg->header.stamp;
-            map.info.resolution = static_cast<float>(param::resolution);
+            map.info.resolution = float(param::resolution);
             map.info.width      = param::grid_width;
             map.info.height     = param::grid_width;
             map.data            = std::vector<int8_t>(param::grid_width * param::grid_width);
-            for (const auto i : data) {
+
+            for (const auto i : *data)
                 map.data[i.x + i.y * param::grid_width] = i.value;
-            }
+
             map_publisher_->publish(map);
         }
+
+        if (packages.size() == param::livox_frames)
+            packages.pop_back();
     }
 };
