@@ -6,8 +6,9 @@ subscribe:
     - /livox/lidar
 
 publish:
-    - /map_2d
+    - /local_nav/map
 
 frame_id:
-    - local_link
+    - map_2d_link
+    - world
 ```

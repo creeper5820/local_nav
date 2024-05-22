@@ -3,15 +3,20 @@
 #include "node.hpp"
 
 #include <Eigen/Eigen>
-#include <livox_ros_driver2/msg/custom_msg.hpp>
+#include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <rclcpp/logger.hpp>
+
+#include <livox_ros_driver2/msg/custom_msg.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
 
 #include <vector>
 
 class Preprocess {
 public:
-    using LivoxCloudType = std::vector<livox_ros_driver2::msg::CustomPoint>;
+    using LivoxCloudType    = std::vector<livox_ros_driver2::msg::CustomPoint>;
+    using StandardCloudType = sensor_msgs::msg::PointCloud2;
+    using PCLCloudType      = pcl::PointCloud<pcl::PointXYZ>;
 
     Preprocess();
 
@@ -19,7 +24,13 @@ public:
     void set(double resolution, double width);
     void set(Eigen::Affine3d& transform);
 
-    std::unique_ptr<std::vector<type::Node>> livox_preprocess(LivoxCloudType& points);
+    std::unique_ptr<std::vector<type::Node>> generate_grid_map(
+        const pcl::PointCloud<pcl::PointXYZ>& pointcloud, const Eigen::Affine3d& transform);
+    std::unique_ptr<std::vector<type::Node>> generate_grid_map(LivoxCloudType& points);
+    std::unique_ptr<std::vector<type::Node>> generate_grid_map(StandardCloudType& points);
+
+    std::unique_ptr<std::vector<type::Node>>
+        generate_cost_map(const pcl::PointCloud<pcl::PointXYZ>& points);
     std::unique_ptr<std::vector<type::Node>> generate_cost_map(LivoxCloudType& points);
 
 private:

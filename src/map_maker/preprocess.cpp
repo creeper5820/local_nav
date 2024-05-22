@@ -4,12 +4,15 @@
 #include "node.hpp"
 
 #include <Eigen/Core>
-#include <livox_ros_driver2/msg/custom_msg.hpp>
 #include <pcl/common/transforms.h>
 #include <pcl/impl/point_types.hpp>
 #include <pcl/point_cloud.h>
+#include <pcl_conversions/pcl_conversions.h>
 #include <rclcpp/logger.hpp>
 #include <rclcpp/utilities.hpp>
+
+#include <livox_ros_driver2/msg/custom_msg.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
 
 #include <algorithm>
 #include <cassert>
@@ -32,7 +35,7 @@ void Preprocess::set(double resolution, double width) {
     grid_width_ = param::grid_width;
 
     RCLCPP_INFO(
-        logger_, "resolution: %.2lf, width: %.2lf, grid width: %zu", resolution_, width_,
+        logger_, "resolution: %.2lf width: %.2lf grid width: %zu", resolution_, width_,
         grid_width_);
 }
 
@@ -47,8 +50,66 @@ void Preprocess::set(Eigen::Affine3d& transform) {
         point_origin_link.z, point_goal_link.x, point_goal_link.y, point_goal_link.z);
 }
 
+std::unique_ptr<std::vector<type::Node>> Preprocess::generate_grid_map(
+    const pcl::PointCloud<pcl::PointXYZ>& pointcloud, const Eigen::Affine3d& transform) {
+
+    auto pointcloud_goal_link = pcl::PointCloud<pcl::PointXYZ>();
+    auto pointcloud_filtered  = pcl::PointCloud<pcl::PointXYZ>();
+
+    pcl::transformPointCloud(pointcloud, pointcloud_goal_link, transform, true);
+
+    for (auto point : pointcloud_goal_link) {
+        if (point.z < param::ground_height)
+            continue;
+
+        auto in_width = in(-(width_ / 2.0), point.x, (width_ / 2.0))
+                     && in(-(width_ / 2.0), point.y, (width_ / 2.0));
+        auto in_blind = in(-(blind_ / 2.0), point.x, (blind_ / 2.0))
+                     && in(-(blind_ / 2.0), point.y, (blind_ / 2.0));
+
+        if (in_width && !in_blind) {
+            pointcloud_filtered.push_back(point);
+        }
+    }
+
+    auto data = std::make_unique<std::vector<type::Node>>(grid_width_ * grid_width_);
+    for (int x = 0; x < grid_width_; x++)
+        for (int y = 0; y < grid_width_; y++) {
+            auto& temp = (*data)[x + y * grid_width_];
+            temp.type  = type::NodeType::NONE;
+            temp.value = 0;
+            temp.x     = x;
+            temp.y     = y;
+        }
+
+    for (const auto point : pointcloud) {
+        auto x = static_cast<int>((point.x + (width_ / 2.0)) / resolution_);
+        auto y = static_cast<int>((point.y + (width_ / 2.0)) / resolution_);
+
+        if (!in(int(0), x, int(grid_width_)) || !in(int(0), y, int(grid_width_)))
+            continue;
+
+        auto& temp = (*data)[x + grid_width_ * y];
+        temp.value = std::max(temp.value, static_cast<int8_t>(point.z * param::z_weight));
+    }
+
+    filter::handle(*data);
+
+    for (auto& temp : *data) {
+        if (temp.value > param::ground_height) {
+            temp.type  = type::NodeType::BLOCK;
+            temp.value = 0;
+        } else {
+            temp.value = -1;
+            temp.type  = type::NodeType::AVAILABLE;
+        }
+    }
+
+    return data;
+}
+
 std::unique_ptr<std::vector<type::Node>>
-    Preprocess::livox_preprocess(std::vector<livox_ros_driver2::msg::CustomPoint>& points) {
+    Preprocess::generate_grid_map(std::vector<livox_ros_driver2::msg::CustomPoint>& points) {
 
     auto cloud_goal_link = std::make_unique<pcl::PointCloud<pcl::PointXYZ>>();
     auto point_goal_link = std::make_unique<pcl::PointXYZ>();
@@ -108,9 +169,61 @@ std::unique_ptr<std::vector<type::Node>>
 }
 
 std::unique_ptr<std::vector<type::Node>>
+    Preprocess::generate_grid_map(sensor_msgs::msg::PointCloud2& points) {
+
+    auto pcl_pointcloud2 = std::make_unique<pcl::PCLPointCloud2>();
+    auto pointcloud      = std::make_unique<pcl::PointCloud<pcl::PointXYZINormal>>();
+
+    pcl_conversions::toPCL(points, *pcl_pointcloud2);
+    pcl::fromPCLPointCloud2(*pcl_pointcloud2, *pointcloud);
+
+    auto data = std::make_unique<std::vector<type::Node>>(grid_width_ * grid_width_);
+    for (int x = 0; x < grid_width_; x++)
+        for (int y = 0; y < grid_width_; y++) {
+            auto& temp = (*data)[x + y * grid_width_];
+            temp.type  = type::NodeType::NONE;
+            temp.value = 0;
+            temp.x     = x;
+            temp.y     = y;
+        }
+
+    for (const auto point : *pointcloud) {
+        auto x = static_cast<int>((point.x + (width_ / 2.0)) / resolution_);
+        auto y = static_cast<int>((point.y + (width_ / 2.0)) / resolution_);
+
+        if (!in(int(0), x, int(grid_width_)) || !in(int(0), y, int(grid_width_)))
+            continue;
+
+        auto& temp = (*data)[x + grid_width_ * y];
+        temp.value = std::max(temp.value, static_cast<int8_t>(point.z * param::z_weight));
+    }
+
+    filter::handle(*data);
+
+    for (auto& temp : *data) {
+        if (temp.value > param::ground_height) {
+            temp.type  = type::NodeType::BLOCK;
+            temp.value = 0;
+        } else {
+            temp.value = -1;
+            temp.type  = type::NodeType::AVAILABLE;
+        }
+    }
+
+    return data;
+}
+
+std::unique_ptr<std::vector<type::Node>>
+    Preprocess::generate_cost_map(const pcl::PointCloud<pcl::PointXYZ>& points) {
+    (void)points;
+    (void)this;
+    return nullptr;
+}
+
+std::unique_ptr<std::vector<type::Node>>
     Preprocess::generate_cost_map(std::vector<livox_ros_driver2::msg::CustomPoint>& points) {
 
-    auto node_map = this->livox_preprocess(points);
+    auto node_map = this->generate_grid_map(points);
 
     auto search_queue = std::queue<type::Node*>();
 
