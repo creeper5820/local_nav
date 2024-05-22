@@ -300,7 +300,7 @@ void Preprocess::transform_from_lidar_link(
     const pcl::PointXYZ& point_origin, pcl::PointXYZ& point_goal) {
     point_goal = {
         point_origin.x, -point_origin.y,
-        static_cast<float>(-param::transform_translation_z - point_origin.z)};
+        static_cast<float>(param::transform_translation_z - point_origin.z)};
 }
 
 pcl::PointXYZ Preprocess::transform_from_lidar_link(const pcl::PointXYZ& point_origin) {

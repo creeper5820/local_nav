@@ -6,7 +6,7 @@ param_server:
       translation:
         x: 0.0
         y: 0.0
-        z: -0.6
+        z: 0.6
       quaternion:
         x: 0.0
         y: 1.0
