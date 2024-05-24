@@ -35,9 +35,6 @@ public:
         using CloudT = sensor_msgs::msg::PointCloud2;
         RCLCPP_INFO(this->get_logger(), "map compressor start");
 
-        this->read_param();
-        this->publish_transform();
-
         livox_subscription_ = this->create_subscription<livox_ros_driver2::msg::CustomMsg>(
             "/livox/lidar", 10,
             [this](std::unique_ptr<livox_ros_driver2::msg::CustomMsg> msg) -> void {
@@ -48,6 +45,9 @@ public:
         cloud_publisher_ = this->create_publisher<CloudT>("local_nav/cloud", 10);
 
         static_transform_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
+
+        this->read_param();
+        this->publish_transform();
     }
 
 private:
