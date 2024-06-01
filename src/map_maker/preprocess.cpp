@@ -21,15 +21,19 @@
 #include <queue>
 #include <vector>
 
-Preprocess::Preprocess()
-    : logger_(rclcpp::get_logger("local_nav")) {}
+Process::Process()
+    : logger_(rclcpp::get_logger("local_nav"))
+{
+}
 
-void Preprocess::set(double blind) {
+void Process::set(double blind)
+{
     RCLCPP_INFO(logger_, "blind: %.2lf", blind);
     blind_ = blind;
 }
 
-void Preprocess::set(double resolution, double width) {
+void Process::set(double resolution, double width)
+{
     resolution_ = resolution;
     width_      = width;
     grid_width_ = param::grid_width;
@@ -39,7 +43,8 @@ void Preprocess::set(double resolution, double width) {
         grid_width_);
 }
 
-void Preprocess::set(Eigen::Affine3d& transform) {
+void Process::set(Eigen::Affine3d& transform)
+{
     transform_ = transform;
 
     auto point_origin_link = pcl::PointXYZ(0.1, 0.1, 0.2);
@@ -50,8 +55,9 @@ void Preprocess::set(Eigen::Affine3d& transform) {
         point_origin_link.z, point_goal_link.x, point_goal_link.y, point_goal_link.z);
 }
 
-std::unique_ptr<std::vector<type::Node>> Preprocess::generate_grid_map(
-    const pcl::PointCloud<pcl::PointXYZ>& pointcloud, const Eigen::Affine3d& transform) {
+std::unique_ptr<std::vector<type::Node>> Process::generate_grid_map(
+    const pcl::PointCloud<pcl::PointXYZ>& pointcloud, const Eigen::Affine3d& transform)
+{
 
     auto pointcloud_goal_link = pcl::PointCloud<pcl::PointXYZ>();
     auto pointcloud_filtered  = pcl::PointCloud<pcl::PointXYZ>();
@@ -109,14 +115,15 @@ std::unique_ptr<std::vector<type::Node>> Preprocess::generate_grid_map(
 }
 
 std::unique_ptr<std::vector<type::Node>>
-    Preprocess::generate_grid_map(std::vector<livox_ros_driver2::msg::CustomPoint>& points) {
+    Process::generate_grid_map(std::vector<livox_ros_driver2::msg::CustomPoint>& points)
+{
 
     auto cloud_goal_link = std::make_unique<pcl::PointCloud<pcl::PointXYZ>>();
     auto point_goal_link = std::make_unique<pcl::PointXYZ>();
 
     for (auto point : points) {
         // transformed link
-        transform_from_lidar_link({point.x, point.y, point.z}, *point_goal_link);
+        transform_from_lidar_link({ point.x, point.y, point.z }, *point_goal_link);
 
         // Remove ground
         if (point_goal_link->z < param::ground_height)
@@ -169,7 +176,8 @@ std::unique_ptr<std::vector<type::Node>>
 }
 
 std::unique_ptr<std::vector<type::Node>>
-    Preprocess::generate_grid_map(sensor_msgs::msg::PointCloud2& points) {
+    Process::generate_grid_map(sensor_msgs::msg::PointCloud2& points)
+{
 
     auto pcl_pointcloud2 = std::make_unique<pcl::PCLPointCloud2>();
     auto pointcloud      = std::make_unique<pcl::PointCloud<pcl::PointXYZINormal>>();
@@ -214,14 +222,16 @@ std::unique_ptr<std::vector<type::Node>>
 }
 
 std::unique_ptr<std::vector<type::Node>>
-    Preprocess::generate_cost_map(const pcl::PointCloud<pcl::PointXYZ>& points) {
+    Process::generate_cost_map(const pcl::PointCloud<pcl::PointXYZ>& points)
+{
     (void)points;
     (void)this;
     return nullptr;
 }
 
 std::unique_ptr<std::vector<type::Node>>
-    Preprocess::generate_cost_map(std::vector<livox_ros_driver2::msg::CustomPoint>& points) {
+    Process::generate_cost_map(std::vector<livox_ros_driver2::msg::CustomPoint>& points)
+{
 
     auto node_map = this->generate_grid_map(points);
 
@@ -296,14 +306,17 @@ std::unique_ptr<std::vector<type::Node>>
     return node_map;
 }
 
-void Preprocess::transform_from_lidar_link(
-    const pcl::PointXYZ& point_origin, pcl::PointXYZ& point_goal) {
+void Process::transform_from_lidar_link(
+    const pcl::PointXYZ& point_origin, pcl::PointXYZ& point_goal)
+{
     point_goal = {
         point_origin.x, -point_origin.y,
-        static_cast<float>(param::transform_translation_z - point_origin.z)};
+        static_cast<float>(param::transform_translation_z - point_origin.z)
+    };
 }
 
-pcl::PointXYZ Preprocess::transform_from_lidar_link(const pcl::PointXYZ& point_origin) {
+pcl::PointXYZ Process::transform_from_lidar_link(const pcl::PointXYZ& point_origin)
+{
     auto point_goal = pcl::PointXYZ();
     transform_from_lidar_link(point_origin, point_goal);
 

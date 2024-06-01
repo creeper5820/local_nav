@@ -28,8 +28,9 @@ class MainProcessNode : public rclcpp::Node {
 public:
     explicit MainProcessNode()
         : Node("local_nav")
-        , preprocess_(std::make_unique<Preprocess>())
-        , map_frame_id_("map_link") {
+        , preprocess_(std::make_unique<Process>())
+        , map_frame_id_("map_link")
+    {
 
         using GridT  = nav_msgs::msg::OccupancyGrid;
         using CloudT = sensor_msgs::msg::PointCloud2;
@@ -59,17 +60,18 @@ private:
     std::shared_ptr<rclcpp::Publisher<sensor_msgs::msg::PointCloud2>> cloud_publisher_;
     std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_transform_broadcaster_;
 
-    std::unique_ptr<Preprocess> preprocess_;
+    std::unique_ptr<Process> preprocess_;
 
     const std::string map_frame_id_;
     bool cost_map_;
 
 private:
-    void publish_transform() {
+    void publish_transform()
+    {
 
         auto transform  = geometry_msgs::msg::TransformStamped();
-        auto rotation   = Eigen::AngleAxisd{};
-        auto quaternion = Eigen::Quaterniond{};
+        auto rotation   = Eigen::AngleAxisd {};
+        auto quaternion = Eigen::Quaterniond {};
 
         transform.header.stamp            = this->get_clock()->now();
         transform.header.frame_id         = map_frame_id_;
@@ -84,10 +86,12 @@ private:
         static_transform_broadcaster_->sendTransform(transform);
     }
 
-    void read_param() {
-        auto translation = Eigen::Translation3d{
+    void read_param()
+    {
+        auto translation = Eigen::Translation3d {
             param::transform_translation_x, param::transform_translation_y,
-            param::transform_translation_z};
+            param::transform_translation_z
+        };
 
         auto quaternion = Eigen::Quaterniond(
             param::transform_quaternion_x, param::transform_quaternion_y,
@@ -102,23 +106,26 @@ private:
         preprocess_->set(transform);
     }
 
-    void callback_for_test(std::unique_ptr<livox_ros_driver2::msg::CustomMsg> msg) {
+    void callback_for_test(std::unique_ptr<livox_ros_driver2::msg::CustomMsg> msg)
+    {
         // map generate process
         auto cloud = std::make_unique<pcl::PointCloud<pcl::PointXYZ>>();
         utility::livox_to_pcl(msg->points, *cloud);
 
-        auto header     = std_msgs::msg::Header{};
+        auto header     = std_msgs::msg::Header {};
         header.frame_id = map_frame_id_;
         header.stamp    = msg->header.stamp;
 
-        auto q = Eigen::Quaterniond{
+        auto q = Eigen::Quaterniond {
             param::transform_quaternion_w, param::transform_quaternion_x,
-            param::transform_quaternion_y, param::transform_quaternion_z};
-        auto t = Eigen::Translation3d{
+            param::transform_quaternion_y, param::transform_quaternion_z
+        };
+        auto t = Eigen::Translation3d {
             param::transform_translation_x, param::transform_translation_y,
-            param::transform_translation_z};
+            param::transform_translation_z
+        };
 
-        auto transform = Eigen::Affine3d{q * t};
+        auto transform = Eigen::Affine3d { q * t };
 
         this->process(cloud, header, transform);
 
@@ -131,7 +138,8 @@ private:
         this->cloud_publisher_->publish(*pointcloud2);
     }
 
-    void pointcloud_subscriber_callback(std::unique_ptr<livox_ros_driver2::msg::CustomMsg> msg) {
+    void pointcloud_subscriber_callback(std::unique_ptr<livox_ros_driver2::msg::CustomMsg> msg)
+    {
         static auto packages = std::vector<std::vector<livox_ros_driver2::msg::CustomPoint>>();
 
         packages.insert(packages.begin(), msg->points);
@@ -152,7 +160,7 @@ private:
             grid->info.resolution        = float(param::resolution);
             grid->info.width             = param::grid_width;
             grid->info.height            = param::grid_width;
-            grid->data = std::vector<int8_t>(param::grid_width * param::grid_width);
+            grid->data                   = std::vector<int8_t>(param::grid_width * param::grid_width);
 
             for (const auto& node : *data)
                 grid->data[node.x + node.y * param::grid_width] = node.value;
@@ -188,7 +196,8 @@ private:
 
     void process(
         const std::unique_ptr<pcl::PointCloud<pcl::PointXYZ>>& pointcloud,
-        const std_msgs::msg::Header& header, const Eigen::Affine3d& transform) {
+        const std_msgs::msg::Header& header, const Eigen::Affine3d& transform)
+    {
 
         using PointCloudType = pcl::PointCloud<pcl::PointXYZ>;
         static auto packages = std::vector<PointCloudType>();

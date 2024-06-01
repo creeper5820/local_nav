@@ -3,7 +3,8 @@
 
 #include <opencv2/opencv.hpp>
 
-void filter::handle(std::vector<type::Node>& data) {
+void filter::handle(std::vector<type::Node>& data)
+{
 
     auto mat = cv::Mat(int(param::grid_width), int(param::grid_width), CV_8UC1);
 

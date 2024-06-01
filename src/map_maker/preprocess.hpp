@@ -12,13 +12,13 @@
 
 #include <vector>
 
-class Preprocess {
+class Process {
 public:
     using LivoxCloudType    = std::vector<livox_ros_driver2::msg::CustomPoint>;
     using StandardCloudType = sensor_msgs::msg::PointCloud2;
     using PCLCloudType      = pcl::PointCloud<pcl::PointXYZ>;
 
-    Preprocess();
+    Process();
 
     void set(double blind);
     void set(double resolution, double width);
@@ -44,7 +44,8 @@ private:
 
 private:
     template <typename T, typename ValT>
-    bool in(const T&& left, const ValT& val, const T&& right) {
+    bool in(const T&& left, const ValT& val, const T&& right)
+    {
         assert(left < right);
         return (val > left && val < right);
     }
